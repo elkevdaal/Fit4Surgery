@@ -53,6 +53,12 @@ excel %>%
 excel %>%
   count(inclusion, `Groep (controle/interventie)`) #count inclusions by group (many controls here!)
                                                   #check groep = ja, check missings in groep
+
+excel %>%
+  filter(is.na(inclusion)) %>%
+  filter(is.na(`Groep (controle/interventie)`)) %>%
+  pull(MDN)  #pull mdn's with missings
+
 excel %>%
   count(inclusion, Zorgpad) #count inclusions by zorgpad
 
@@ -69,7 +75,6 @@ excel %>%
 
 View(f4s)
 f4s <- f4s %>%
-  select(-status) %>%
   filter(!grepl("afwijkend", `Reden exclusie`)) %>% #remove patients with afwijkende procedure / indicatie
   filter(!grepl("geen operatie", `Reden exclusie`)) #remove patients without surgery
 
