@@ -8,8 +8,6 @@ library(haven)
 library(readxl)
 library(xlsx)
 library(writexl)
-library(hablar)
-library(janitor)
 
 ## Read excel files 6-12-2023
 log <- read_excel("Z:\\Data PREHAB trial\\Totaaloverzicht F4S.xlsx", sheet = "Screening new")
