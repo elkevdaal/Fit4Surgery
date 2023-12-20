@@ -7,8 +7,10 @@ library(tidyverse)
 library(haven)
 library(readxl)
 library(xlsx)
+library(gt)
 
 ## Read excel files
+rm(list = ls())
 f4s <- read_excel("Z:\\Data PREHAB trial\\Totaaloverzicht F4S.xlsx", sheet = "F4S inclusies") #data F4S participants
 excel <- read_excel("Z:\\Data PREHAB trial\\Totaaloverzicht F4S.xlsx", sheet = "Excel log")
 screening <- read_excel("Z:\\Data PREHAB trial\\Totaaloverzicht F4S.xlsx", sheet = "Screening 6-12")
@@ -20,7 +22,11 @@ screening <- read_excel("Z:\\Data PREHAB trial\\Totaaloverzicht F4S.xlsx", sheet
 ## intervention patients have to be excluded
 ## then, all patients with bijzonderheden = "excluderen!" should be excluded from f4s file (inclusion variable = no)
 
-## Change all cases to lower
+## Change all cases to lower and manipulate few variables
+f4s <- f4s %>% 
+  rename(id = F4S_ID) %>%
+  mutate(id = as.integer(str_remove(id, 'F4S_')))
+
 f4s <- mutate_all(f4s, .funs = tolower)
 excel <- mutate_all(excel, .funs = tolower)
 screening <- mutate_all(screening, .funs = tolower)
@@ -30,10 +36,8 @@ screening <- screening %>%
          participation = Participation,
          group = Groep)
 
-excel <- screening %>%
-  rename(Groep = group,
-         surgery_type = Zorgpad)
-
+excel <- excel %>%
+  rename(group = Groep)
 
 ## Change MDN to numeric 
 f4s <- f4s %>%
@@ -55,73 +59,81 @@ excel <- excel %>%
 
 ## Add variables inclusion and participation
 excel <- excel %>%
-  mutate(inclusion = ifelse(`Exclusie deelname (ja/nee)` == "ja","nee", "ja")) %>%
+  mutate(inclusion = ifelse(`Exclusie deelname (ja/nee)` == "ja","no", "yes")) %>%
   mutate(participation = "no") #none of these patients participated
-
-View(excel)
-## note: reden "ok te snel" in interventie groep is exclusiecriteria! ##
-## hier moet dus bij exclusie deelname "ja" worden ingevuld ##
-
-## Count excel log
-excel %>%
-  count()  #count study eligibility
-
-excel %>%
-  count(inclusion) #count inclusions 
-                    
-excel %>%
-  count(inclusion, `Groep (controle/interventie)`) #count inclusions by group (many controls here!)
-                                                  #check groep = ja / NA (MDN 6545594, 9688924)
-
-excel %>%
-  count(inclusion, Zorgpad) #count inclusions by zorgpad
-
-excel %>%
-  count(inclusion, Zorgpad, `Groep (controle/interventie)`) #count inclusions by zorgpad and group
-
-excel %>%
-  count(participation) #count participants
 
 ## Manipulate f4s 
 ## Remove subjects who were not eligible (i.e., geen ok, afwijkende procedure, afwijkende indicatie)
 ## Q: more reasons that make people not suitable for target population?
 ## Q: what to do with patients <50 jaar thp?
 
-View(f4s)
 f4s <- f4s %>%
   filter(!grepl("afwijkend", `Reden exclusie`)) %>% #remove patients with afwijkende procedure / indicatie
   filter(!grepl("geen operatie", `Reden exclusie`)) #remove patients without surgery
 
 ## Add variables inclusion and participation (in this df, inclusion and participation should be equal if "definitieve deelname" equals yes or no)
 f4s <- f4s %>%
-  mutate(inclusion = ifelse(`F4S definitieve deelname` == "nee", "nee", "ja")) %>%
-  mutate(participation = ifelse(`F4S definitieve deelname` == "ja", "ja", "nee")) 
+  mutate(inclusion = ifelse(`F4S definitieve deelname` == "nee", "no", "yes")) %>%
+  mutate(participation = ifelse(`F4S definitieve deelname` == "ja", "yes", "no")) %>%
+  mutate(id = as.integer(id))
 
-## Count f4s file
-## note: control / intervention to be added --> castor
-f4s %>%
-  count() #Count study eligibility
+## add group to f4s file
+source("C:\\Users\\Elke\\Documents\\R\\Fit4Surgery\\Cleaning\\Source cleaning and codebook.R") #castor data from 20-12-2023
+f4s_group <- full_data %>%
+  select(id, group)
 
-f4s %>%
-  count(inclusion) #count inclusions
-
-f4s %>%
-  count(inclusion, Zorgpad) #count inclusions per zorgpad
-
-f4s %>%
-  count(participation)
-
-## Manipulate screening_f4s
-screening %>%
-  count(inclusion)
-
-screening %>%
-  count(participation)
+f4s_test <- semi_join(f4s_group, f4s, by = "id") # only keep id numbers that are present in f4s sheet
+f4s <- full_join(f4s, f4s_test, by = "id") # full join so that f4s contains group variable
 
 ## Full join excel, screening and f4s
-df1 <- full_join(excel, f4s, by = c("MDN", "Zorgpad", "inclusion", "participation"))
+df1 <- full_join(excel, f4s, by = c("MDN", "Zorgpad", "group", "inclusion", "participation"))
 
-df <- full_join(df1, screening, by = c("MDN", "Zorgpad", "inclusion", "participation")) ## add group variable in f4s dataframe (join with castor)
+df <- full_join(df1, screening, by = c("MDN", "Zorgpad", "group", "inclusion", "participation")) ## add group variable in f4s dataframe (join with castor)
 
 df_counts <- df %>%
   select(MDN, Zorgpad, group, inclusion, participation)
+
+df_counts <- mutate_all(df_counts, .funs = tolower)
+df_counts <- df_counts %>%
+  mutate(group = as.factor(group))
+
+df_counts <- df_counts %>%
+  mutate(group = fct_collapse(group,
+    control = c("control", "controle"),
+    intervention = c("intervention", "interventie")
+  ))
+
+df_counts <- df_counts %>%
+  mutate(inclusion = fct_collapse(inclusion,
+      yes = c("ja", "yes"),
+      no = c("no", "nee")
+  ))
+
+df_counts <- df_counts %>%
+  mutate(participation = fct_collapse(participation,
+     yes = c("ja", "yes"),
+     no = c("no", "nee")
+  ))
+## count
+not_eligible <- df_counts %>%
+  filter(inclusion == "no")
+
+df_counts <- df_counts %>%
+  filter(inclusion == "yes") %>%
+  filter(participation == "yes" | participation == "no")
+
+df_counts %>%
+  count(group)  ## check NA's 
+
+df_counts %>%
+  count(participation)
+
+df_counts %>%
+  count(group, participation) %>%
+  gt()
+
+df_counts %>%
+  count(group, participation, Zorgpad) %>%
+  gt() ## check names of zorgpaden
+
+
