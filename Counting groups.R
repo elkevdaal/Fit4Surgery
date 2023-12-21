@@ -15,14 +15,8 @@ f4s <- read_excel("Z:\\Data PREHAB trial\\Totaaloverzicht F4S.xlsx", sheet = "F4
 excel <- read_excel("Z:\\Data PREHAB trial\\Totaaloverzicht F4S.xlsx", sheet = "Excel log")
 screening <- read_excel("Z:\\Data PREHAB trial\\Totaaloverzicht F4S.xlsx", sheet = "Screening 6-12")
 
-## nOte: screening_f4s, patients without OK have been removed, 
-## patients who participated (without remarks) have been removed
-## all other patients have to be inclusions?? Or do we have to check EPIC?
-## check patients with te korte tijd, controls can remain included,
-## intervention patients have to be excluded
-## then, all patients with bijzonderheden = "excluderen!" should be excluded from f4s file (inclusion variable = no)
+## general manipulations
 
-## Change all cases to lower and manipulate few variables
 f4s <- f4s %>% 
   rename(id = F4S_ID) %>%
   mutate(id = as.integer(str_remove(id, 'F4S_')))
@@ -64,9 +58,6 @@ excel <- excel %>%
 
 ## Manipulate f4s 
 ## Remove subjects who were not eligible (i.e., geen ok, afwijkende procedure, afwijkende indicatie)
-## Q: more reasons that make people not suitable for target population?
-## Q: what to do with patients <50 jaar thp?
-
 f4s <- f4s %>%
   filter(!grepl("afwijkend", `Reden exclusie`)) %>% #remove patients with afwijkende procedure / indicatie
   filter(!grepl("geen operatie", `Reden exclusie`)) #remove patients without surgery
@@ -90,17 +81,51 @@ df1 <- full_join(excel, f4s, by = c("MDN", "Zorgpad", "group", "inclusion", "par
 
 df <- full_join(df1, screening, by = c("MDN", "Zorgpad", "group", "inclusion", "participation")) ## add group variable in f4s dataframe (join with castor)
 
+## Manipulate df_counts
+## Create factors for group and Zorgpad
 df_counts <- df %>%
   select(MDN, Zorgpad, group, inclusion, participation)
 
 df_counts <- mutate_all(df_counts, .funs = tolower)
 df_counts <- df_counts %>%
-  mutate(group = as.factor(group))
+  mutate(group = as.factor(group)) %>%
+  mutate(Zorgpad = as.factor(Zorgpad))
 
 df_counts <- df_counts %>%
   mutate(group = fct_collapse(group,
     control = c("control", "controle"),
     intervention = c("intervention", "interventie")
+  ))
+
+df_counts <- df_counts %>%
+  mutate(Zorgpad = fct_collapse(Zorgpad, #waar hoort aaa bij?
+    evar = c("aaa evar", "evar", "fevar"), 
+    open = "aaa open",
+    borstreconstructie = c("autologe borstreconstructie",
+                                    "autologe mammareconstructie",
+                                    "autologe borstreconstructie (ok 12-4-2022)",
+                                    "autologe borstreconstructie (ok 31-8-2021)"),
+    colon = "colon",
+    cystectomie = c("cystectomy", "cystectomie"),
+    endometrium = "endometrium",
+    gist = "gist",
+    hipec = "hipec",
+    lever = c("lever", "liver"),
+    meningeoom = c("meningeoom", "meningeoom\r\n"),
+    nefrectomie = c("nefrectomie", "nefrectomy"),
+    oesofagus = c("oesofagus", "oesophagus"),
+    ovarium = "ovarium",
+    pancreas = "pancreas",
+    rectum = "rectum",
+    retroperitoneaal = c("retroperitoneaal sarcoom", "sarcoom"), #is dit hetzelfde?
+    thp_primair = c("thp primair", "thp primary", "thp primair 11-06-2021",
+                    "thp primair 20-12-2021"),
+    thp_revisie = c("thp revisie", "thp revisie (ok 14-1-22)",
+                    "thp revisie (ok 25-5-22)", "thp revisie (ok 27-8-21)"),
+    tkp_revisie = "tkp revisie",
+    tle = "tle",
+    vrije_lap = c("vascularized free muscle flap", "vrije lap"),
+    vulva = c("vulva", "vulva (15-6-22)", "vulva (25-8-22)", "vulva (7-4-22)")
   ))
 
 df_counts <- df_counts %>%
@@ -114,26 +139,48 @@ df_counts <- df_counts %>%
      yes = c("ja", "yes"),
      no = c("no", "nee")
   ))
-## count
+
+## count df_counts 
 not_eligible <- df_counts %>%
-  filter(inclusion == "no")
+  filter(inclusion == "no") # vectorize non eligible patients
 
 df_counts <- df_counts %>%
   filter(inclusion == "yes") %>%
-  filter(participation == "yes" | participation == "no")
+  filter(participation == "yes" | participation == "no") # remove non eligible patients
 
 df_counts %>%
-  count(group)  ## check NA's 
+  count() # count inclusions
+
+df_counts %>% # count inclusions per group
+  count(group)  # check NA's (MDN: 3182568, 1142264)
 
 df_counts %>%
-  count(participation)
+  count(participation) # count participants 
 
 df_counts %>%
   count(group, participation) %>%
+  gt() # count participation per group
+
+df_counts %>%
+  count(Zorgpad) # count inclusions per zorgpad
+
+df_counts %>% # count inclusions per zorgpad and group (most interesting)
+  count(group, Zorgpad) %>%
   gt()
 
 df_counts %>%
   count(group, participation, Zorgpad) %>%
-  gt() ## check names of zorgpaden
+  gt() # count participation per group and zorgpad
+
+## check participation within intervention group
+df_counts %>%
+  filter(group == "intervention") %>%
+  count(participation) #overall participation from all eligible (included) patients
+  
+df_counts %>%
+  filter(group == "intervention") %>%
+  count(Zorgpad, participation) %>%
+  gt() #count participation per zorgpad 
+# NB: low participation rate borstreconstructie (missed?? reasons??)
 
 
