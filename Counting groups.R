@@ -16,14 +16,13 @@ excel <- read_excel("Z:\\Data PREHAB trial\\Totaaloverzicht F4S.xlsx", sheet = "
 screening <- read_excel("Z:\\Data PREHAB trial\\Totaaloverzicht F4S.xlsx", sheet = "Screening 6-12")
 
 ## general manipulations
-
-f4s <- f4s %>% 
-  rename(id = F4S_ID) %>%
-  mutate(id = as.integer(str_remove(id, 'F4S_')))
-
 f4s <- mutate_all(f4s, .funs = tolower)
 excel <- mutate_all(excel, .funs = tolower)
 screening <- mutate_all(screening, .funs = tolower)
+
+f4s <- f4s %>% 
+  rename(id = F4S_ID) %>%
+  mutate(id = as.integer(str_remove(id, 'f4s_')))
 
 screening <- screening %>%
   rename(inclusion = Inclusion,
@@ -68,13 +67,40 @@ f4s <- f4s %>%
   mutate(participation = ifelse(`F4S definitieve deelname` == "ja", "yes", "no")) %>%
   mutate(id = as.integer(id))
 
-## add group to f4s file
+## add group and intentio to treat variables to f4s file
 source("C:\\Users\\Elke\\Documents\\R\\Fit4Surgery\\Cleaning\\Source cleaning and codebook.R") #castor data from 20-12-2023
 f4s_group <- full_data %>%
-  select(id, group)
+  select(id, group, intention_to_treat, deviation_intention_to_treat_primary, reason_deviation_intention_to_treat)
 
 f4s_test <- semi_join(f4s_group, f4s, by = "id") # only keep id numbers that are present in f4s sheet
 f4s <- full_join(f4s, f4s_test, by = "id") # full join so that f4s contains group variable
+
+f4s <- mutate_all(f4s, .funs = tolower) #all cases to lower
+
+f4s <- f4s %>%
+  mutate(MDN = as.numeric(MDN)) #MDN as numeric
+
+#####################################################################
+## allocate everyone to correct group (ignore for counting groups!!)
+f4s2 <- f4s %>% mutate(group2 = as.factor(ifelse(
+    deviation_intention_to_treat_primary == "yes", 
+    "intervention", as.character(group)))) # change control to intervention if deviation = true 
+           # check patients with deviation = TRUE but group = control !!
+
+id_change <- f4s %>%
+  filter(inclusion == "yes") %>%
+  mutate(inclusion = as.factor(ifelse(
+    reason_deviation_intention_to_treat == "surgery soon" |
+      reason_deviation_intention_to_treat == "contra intervention", 
+    "no", as.character(inclusion)))) %>% # not sure about "illness" and "Not feasible"
+    filter(inclusion == "no") %>%
+  pull(id) #check which id's should change inclusion from yes to no
+
+f4s2 <- f4s %>%
+  mutate(inclusion = as.factor(ifelse(
+    id %in% id_change,
+    "no", as.character(inclusion)))) #if id komt voor in id_change, change inclusion to no
+#####################################################################
 
 ## Full join excel, screening and f4s
 df1 <- full_join(excel, f4s, by = c("MDN", "Zorgpad", "group", "inclusion", "participation"))
@@ -149,10 +175,10 @@ df_counts <- df_counts %>%
   filter(participation == "yes" | participation == "no") # remove non eligible patients
 
 df_counts %>%
-  count() # count inclusions
+  count() # count inclusions (minus number of id_change)
 
 df_counts %>% # count inclusions per group
-  count(group)  # check NA's (MDN: 3182568, 1142264)
+  count(group)  
 
 df_counts %>%
   count(participation) # count participants 
