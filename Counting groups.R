@@ -80,27 +80,27 @@ f4s <- mutate_all(f4s, .funs = tolower) #all cases to lower
 f4s <- f4s %>%
   mutate(MDN = as.numeric(MDN)) #MDN as numeric
 
-#####################################################################
-## allocate everyone to correct group (ignore for counting groups!!)
-f4s2 <- f4s %>% mutate(group2 = as.factor(ifelse(
-    deviation_intention_to_treat_primary == "yes", 
-    "intervention", as.character(group)))) # change control to intervention if deviation = true 
-           # check patients with deviation = TRUE but group = control !!
+## allocate everyone to correct group 
+table(is.na(f4s$deviation_intention_to_treat_primary))
 
-id_change <- f4s %>%
-  filter(inclusion == "yes") %>%
-  mutate(inclusion = as.factor(ifelse(
-    reason_deviation_intention_to_treat == "surgery soon" |
-      reason_deviation_intention_to_treat == "contra intervention", 
-    "no", as.character(inclusion)))) %>% # not sure about "illness" and "Not feasible"
-    filter(inclusion == "no") %>%
-  pull(id) #check which id's should change inclusion from yes to no
+f4s <- f4s %>%
+  mutate(group = as.factor(case_when(
+    is.na(deviation_intention_to_treat_primary) & 
+      group == "intervention" ~ "intervention",
+    is.na(deviation_intention_to_treat_primary) &
+      group == "control" ~ "control",
+    deviation_intention_to_treat_primary == "yes" ~ "intervention",
+    .default = as.character(group) # change control to intervention if deviation = true 
+    # check patients with deviation = TRUE but group = control !!
+  ))) %>%
+  mutate(inclusion = as.factor(case_when(
+    inclusion == "yes" & 
+      reason_deviation_intention_to_treat == "surgery soon" ~ "no",
+    inclusion == "yes" & 
+      reason_deviation_intention_to_treat == "contra intervention" ~ "no",
+    .default = as.character(inclusion)
+  ))) #change inclusion from yes to no (not sure about illness and not feasible)
 
-f4s2 <- f4s %>%
-  mutate(inclusion = as.factor(ifelse(
-    id %in% id_change,
-    "no", as.character(inclusion)))) #if id komt voor in id_change, change inclusion to no
-#####################################################################
 
 ## Full join excel, screening and f4s
 df1 <- full_join(excel, f4s, by = c("MDN", "Zorgpad", "group", "inclusion", "participation"))
@@ -124,9 +124,8 @@ df_counts <- df_counts %>%
   ))
 
 df_counts <- df_counts %>%
-  mutate(Zorgpad = fct_collapse(Zorgpad, #waar hoort aaa bij?
-    evar = c("aaa evar", "evar", "fevar"), 
-    open = "aaa open",
+  mutate(Zorgpad = fct_collapse(Zorgpad, 
+    evar_open = c("aaa evar", "evar", "fevar", "aaa", "aaa open"), # is dit 1 zorgpad?
     borstreconstructie = c("autologe borstreconstructie",
                                     "autologe mammareconstructie",
                                     "autologe borstreconstructie (ok 12-4-2022)",
@@ -134,8 +133,9 @@ df_counts <- df_counts %>%
     colon = "colon",
     cystectomie = c("cystectomy", "cystectomie"),
     endometrium = "endometrium",
-    gist = "gist",
-    hipec = "hipec",
+    gist = "gist", # is dit een zorgpad?
+    hipec_sarcoma = c("hipec", "retroperitoneaal sarcoom", "retroperitoneaal",
+                         "sarcoom"),
     lever = c("lever", "liver"),
     meningeoom = c("meningeoom", "meningeoom\r\n"),
     nefrectomie = c("nefrectomie", "nefrectomy"),
@@ -143,16 +143,15 @@ df_counts <- df_counts %>%
     ovarium = "ovarium",
     pancreas = "pancreas",
     rectum = "rectum",
-    retroperitoneaal = c("retroperitoneaal sarcoom", "sarcoom"), #is dit hetzelfde?
     thp_primair = c("thp primair", "thp primary", "thp primair 11-06-2021",
                     "thp primair 20-12-2021"),
     thp_revisie = c("thp revisie", "thp revisie (ok 14-1-22)",
                     "thp revisie (ok 25-5-22)", "thp revisie (ok 27-8-21)"),
     tkp_revisie = "tkp revisie",
-    tle = "tle",
+    tle = "tle", # is dit een zorgpad?
     vrije_lap = c("vascularized free muscle flap", "vrije lap"),
     vulva = c("vulva", "vulva (15-6-22)", "vulva (25-8-22)", "vulva (7-4-22)")
-  ))
+  )) # nb: zorgpaden gespecificeerd in protocol zijn niet hetzelfde!
 
 df_counts <- df_counts %>%
   mutate(inclusion = fct_collapse(inclusion,
@@ -175,13 +174,15 @@ df_counts <- df_counts %>%
   filter(participation == "yes" | participation == "no") # remove non eligible patients
 
 df_counts %>%
-  count() # count inclusions (minus number of id_change)
+  count() # count inclusions 
 
 df_counts %>% # count inclusions per group
-  count(group)  
+  count(group) %>%
+  gt()
 
 df_counts %>%
-  count(participation) # count participants 
+  count(participation) %>%
+  gt() # count participants 
 
 df_counts %>%
   count(group, participation) %>%
