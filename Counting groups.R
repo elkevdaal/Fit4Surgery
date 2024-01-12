@@ -41,13 +41,12 @@ screening <- screening %>%
   mutate(MDN = as.numeric(MDN))
 
 ## Check whether there is no overlap in MDN numbers between f4s and excel / screening
-test <- inner_join(f4s, excel, by = "MDN") #delete 1676595 and 8959699 from excel
+test <- inner_join(f4s, excel, by = "MDN") 
 test2 <- inner_join(f4s, screening, by = "MDN") 
 
 ## Manipulate excel log 
 ## Remove subjects who were not eligible
-excel <- excel %>%
-  filter(MDN != 1676595 | MDN != 8959699) %>% #delete 1676595 from excel (is already in f4s df)
+excel <- excel %>% 
   filter(`Study eligibility (ja/nee)` == "ja") #Check mdn 8445981, 1731690, 3448151 (study eligibility), 9539121 (missing)
 
 ## Add variables inclusion and participation
@@ -67,7 +66,7 @@ f4s <- f4s %>%
   mutate(participation = ifelse(`F4S definitieve deelname` == "ja", "yes", "no")) %>%
   mutate(id = as.integer(id))
 
-## add group and intentio to treat variables to f4s file
+## add group and intention to treat variables to f4s file
 source("C:\\Users\\Elke\\Documents\\R\\Fit4Surgery\\Cleaning\\Source cleaning and codebook.R") #castor data from 20-12-2023
 f4s_group <- full_data %>%
   select(id, group, intention_to_treat, deviation_intention_to_treat_primary, reason_deviation_intention_to_treat)
@@ -80,9 +79,25 @@ f4s <- mutate_all(f4s, .funs = tolower) #all cases to lower
 f4s <- f4s %>%
   mutate(MDN = as.numeric(MDN)) #MDN as numeric
 
-## allocate everyone to correct group 
-table(is.na(f4s$deviation_intention_to_treat_primary))
+f4s %>%
+  filter(is.na(deviation_intention_to_treat_primary)) %>%
+  pull(id) # check which patients have missing data for ITT variable
+          # (from 1940 not yet in castor) --> list gekke dingen
+# "497"  "751"  "773"  "856"  "904"  "1033" "1131" "1134" "1151" "1668" "1736" "1846" "1858"
+# "1866" "1895" "1896" "1897" "1898" "1899" "1900" "1901" "1902" "1903" "1904" "1905" "1906"
+# "1907" "1908" "1909" "1913" "1914" "1915" "1916" "1917" "1918" "1919" "1920" "1921" "1923"
+# "1924" "1925" "1926" "1927" "1928" "1930" "1931" "1932" "1933" "1934" "1935" "1936" "1937"
+# "1938" "1939" "1940" "1941" "1942" "1944" "1945" "1946" "1947" "1948" "1949" "1950" "1951"
+# "1952" "1953" "1954" "1955" "1956" "1957" "1958" "1959" "1960" "1961" "1962" "1963" "1964"
+# "1965" "1966" "1967" "1968" "1969" "1970" "1971" "1972" "1973" "1974" "1975" "1976" "1977"
+# "1978" "1979" "1980" "1981" "1982"
 
+f4s %>%
+  filter(deviation_intention_to_treat_primary == "yes" & intention_to_treat == "control") %>%
+  pull(id) # check patients with deviation = yes but group = control 
+# 266, 413
+
+## allocate everyone to correct group 
 f4s <- f4s %>%
   mutate(group = as.factor(case_when(
     is.na(deviation_intention_to_treat_primary) & 
@@ -90,8 +105,7 @@ f4s <- f4s %>%
     is.na(deviation_intention_to_treat_primary) &
       group == "control" ~ "control",
     deviation_intention_to_treat_primary == "yes" ~ "intervention",
-    .default = as.character(group) # change control to intervention if deviation = true 
-    # check patients with deviation = TRUE but group = control !!
+    .default = as.character(group) # change control to intervention if deviation = yes
   ))) %>%
   mutate(inclusion = as.factor(case_when(
     inclusion == "yes" & 
@@ -125,34 +139,35 @@ df_counts <- df_counts %>%
 
 df_counts <- df_counts %>%
   mutate(Zorgpad = fct_collapse(Zorgpad, 
-    evar_open = c("aaa evar", "evar", "fevar", "aaa", "aaa open"), # is dit 1 zorgpad?
-    borstreconstructie = c("autologe borstreconstructie",
+    aaa_open = c("aaa", "aaa open"), # waar hoort aaa bij? (open or evar?)                           
+    aaa_evar = c("aaa evar", "evar", "fevar"), 
+    auto_breast_reconstruction = c("autologe borstreconstructie",
                                     "autologe mammareconstructie",
                                     "autologe borstreconstructie (ok 12-4-2022)",
                                     "autologe borstreconstructie (ok 31-8-2021)"),
-    colon = "colon",
-    cystectomie = c("cystectomy", "cystectomie"),
-    endometrium = "endometrium",
-    gist = "gist", # is dit een zorgpad?
-    hipec_sarcoma = c("hipec", "retroperitoneaal sarcoom", "retroperitoneaal",
-                         "sarcoom"),
-    lever = c("lever", "liver"),
-    meningeoom = c("meningeoom", "meningeoom\r\n"),
-    nefrectomie = c("nefrectomie", "nefrectomy"),
-    oesofagus = c("oesofagus", "oesophagus"),
-    ovarium = "ovarium",
-    pancreas = "pancreas",
-    rectum = "rectum",
-    thp_primair = c("thp primair", "thp primary", "thp primair 11-06-2021",
+    colon_cancer = "colon",
+    bladder_cancer = c("cystectomy", "cystectomie"),
+    endometrial_cancer = "endometrium",
+    retroperitoneal_malignancies = c("hipec", "retroperitoneaal sarcoom", "retroperitoneaal",
+                         "sarcoom", "gist"), # gist hier weghalen?
+    liver_cancer = c("lever", "liver"),
+    supratentorial_meningeoma = c("meningeoom", "meningeoom\r\n"),
+    renal_cancer = c("nefrectomie", "nefrectomy"),
+    esophageal_cancer = c("oesofagus", "oesophagus"),
+    ovarian_cancer = "ovarium",
+    pancreaticobiliary_cancer = "pancreas",
+    rectal_cancer = "rectum",
+    hip_arthrosis = c("thp primair", "thp primary", "thp primair 11-06-2021",
                     "thp primair 20-12-2021"),
-    thp_revisie = c("thp revisie", "thp revisie (ok 14-1-22)",
+    hip_arthroplasty_failure = c("thp revisie", "thp revisie (ok 14-1-22)",
                     "thp revisie (ok 25-5-22)", "thp revisie (ok 27-8-21)"),
-    tkp_revisie = "tkp revisie",
-    tle = "tle", # is dit een zorgpad?
-    vrije_lap = c("vascularized free muscle flap", "vrije lap"),
-    vulva = c("vulva", "vulva (15-6-22)", "vulva (25-8-22)", "vulva (7-4-22)")
-  )) # nb: zorgpaden gespecificeerd in protocol zijn niet hetzelfde!
+    knee_arthroplasty_failure = "tkp revisie",
+    laryngeal_cancer = "tle", 
+    oral_cancer = c("vascularized free muscle flap", "vrije lap"),
+    vulvar_field_resection = c("vulva", "vulva (15-6-22)", "vulva (25-8-22)", "vulva (7-4-22)")
+  )) 
 
+table(df_counts$Zorgpad)
 df_counts <- df_counts %>%
   mutate(inclusion = fct_collapse(inclusion,
       yes = c("ja", "yes"),
@@ -195,7 +210,7 @@ df_counts %>% # count inclusions per zorgpad and group (most interesting)
   count(group, Zorgpad) %>%
   gt()
 
-df_counts %>%
+ df_counts %>%
   count(group, participation, Zorgpad) %>%
   gt() # count participation per group and zorgpad
 
