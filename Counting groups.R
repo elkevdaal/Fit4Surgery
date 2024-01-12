@@ -44,17 +44,13 @@ screening <- screening %>%
 test <- inner_join(f4s, excel, by = "MDN") 
 test2 <- inner_join(f4s, screening, by = "MDN") 
 
-## Manipulate excel log 
-## Remove subjects who were not eligible
-excel <- excel %>% 
-  filter(`Study eligibility (ja/nee)` == "ja") #Check mdn 8445981, 1731690, 3448151 (study eligibility), 9539121 (missing)
-
+# Manipulate excel log 
 ## Add variables inclusion and participation
 excel <- excel %>%
   mutate(inclusion = ifelse(`Exclusie deelname (ja/nee)` == "ja","no", "yes")) %>%
   mutate(participation = "no") #none of these patients participated
 
-## Manipulate f4s 
+# Manipulate f4s 
 ## Remove subjects who were not eligible (i.e., geen ok, afwijkende procedure, afwijkende indicatie)
 f4s <- f4s %>%
   filter(!grepl("afwijkend", `Reden exclusie`)) %>% #remove patients with afwijkende procedure / indicatie
@@ -223,6 +219,6 @@ df_counts %>%
   filter(group == "intervention") %>%
   count(Zorgpad, participation) %>%
   gt() #count participation per zorgpad 
-# NB: low participation rate borstreconstructie (missed?? reasons??)
+
 
 
