@@ -135,7 +135,7 @@ df_counts <- df_counts %>%
 
 df_counts <- df_counts %>%
   mutate(Zorgpad = fct_collapse(Zorgpad, 
-    aaa_open = c("aaa", "aaa open"), # waar hoort aaa bij? (open or evar?)                           
+    aaa_open = c("aaa", "aaa open"),                           
     aaa_evar = c("aaa evar", "evar", "fevar"), 
     auto_breast_reconstruction = c("autologe borstreconstructie",
                                     "autologe mammareconstructie",
