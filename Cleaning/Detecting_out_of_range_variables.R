@@ -12,7 +12,7 @@ library(naniar)
 library(writexl)
 
 #Open Excel export and save as full_data
-full_data <- read_excel("Z:\\Data PREHAB trial\\F4S_PREHAB_trial_excel_export_20231024031037.xlsx")
+full_data <- read_excel("Z:\\Data PREHAB trial\\F4S_PREHAB_trial_excel_export_20240130114502.xlsx") #Export 30-01-2024
 
 #Rename columns with strings 
 full_data <- full_data %>% rename(ID = 'Participant Id',

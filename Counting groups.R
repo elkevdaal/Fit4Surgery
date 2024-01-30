@@ -1,6 +1,7 @@
 ## Author: Elke van Daal
 ## Project: Fit4Surgery PREHAB trial - Counting groups
 ## Start date: 5-12-2023
+## Last update: 30-01-2024
 
 ## load packages
 library(tidyverse)
@@ -54,7 +55,8 @@ excel <- excel %>%
 ## Remove subjects who were not eligible (i.e., geen ok, afwijkende procedure, afwijkende indicatie)
 f4s <- f4s %>%
   filter(!grepl("afwijkend", `Reden exclusie`)) %>% #remove patients with afwijkende procedure / indicatie
-  filter(!grepl("geen operatie", `Reden exclusie`)) #remove patients without surgery
+  filter(!grepl("geen operatie", `Reden exclusie`)) %>% #remove patients without surgery
+  filter(!grepl("open-dicht", `Reden exclusie`))
 
 ## Add variables inclusion and participation (in this df, inclusion and participation should be equal if "definitieve deelname" equals yes or no)
 f4s <- f4s %>%
@@ -78,20 +80,12 @@ f4s <- f4s %>%
 f4s %>%
   filter(is.na(deviation_intention_to_treat_primary)) %>%
   pull(id) # check which patients have missing data for ITT variable
-          # (from 1940 not yet in castor) --> list gekke dingen
-# "497"  "751"  "773"  "856"  "904"  "1033" "1131" "1134" "1151" "1668" "1736" "1846" "1858"
-# "1866" "1895" "1896" "1897" "1898" "1899" "1900" "1901" "1902" "1903" "1904" "1905" "1906"
-# "1907" "1908" "1909" "1913" "1914" "1915" "1916" "1917" "1918" "1919" "1920" "1921" "1923"
-# "1924" "1925" "1926" "1927" "1928" "1930" "1931" "1932" "1933" "1934" "1935" "1936" "1937"
-# "1938" "1939" "1940" "1941" "1942" "1944" "1945" "1946" "1947" "1948" "1949" "1950" "1951"
-# "1952" "1953" "1954" "1955" "1956" "1957" "1958" "1959" "1960" "1961" "1962" "1963" "1964"
-# "1965" "1966" "1967" "1968" "1969" "1970" "1971" "1972" "1973" "1974" "1975" "1976" "1977"
-# "1978" "1979" "1980" "1981" "1982"
+# "234"  "497"  "751"  "856"  "1033" "1131" "1134" "1668"
 
 f4s %>%
   filter(deviation_intention_to_treat_primary == "yes" & intention_to_treat == "control") %>%
   pull(id) # check patients with deviation = yes but group = control 
-# 266, 413
+# 1963
 
 ## allocate everyone to correct group 
 f4s <- f4s %>%
@@ -110,7 +104,6 @@ f4s <- f4s %>%
       reason_deviation_intention_to_treat == "contra intervention" ~ "no",
     .default = as.character(inclusion)
   ))) #change inclusion from yes to no (not sure about illness and not feasible)
-
 
 ## Full join excel, screening and f4s
 df1 <- full_join(excel, f4s, by = c("MDN", "Zorgpad", "group", "inclusion", "participation"))

@@ -9,8 +9,9 @@ library(naniar)
 library(haven)
 library(readxl)
 
+
 #Open Excel export and save as full_data
-full_data <- read_excel("Z:\\Data PREHAB trial\\F4S_PREHAB_trial_excel_export_20231024031037.xlsx")
+full_data <- read_excel("Z:\\Data PREHAB trial\\F4S_PREHAB_trial_excel_export_20240130114502.xlsx") #export 30-01-2024
 #change data type of full_data
 full_data <- full_data %>% retype()
 
