@@ -108,7 +108,7 @@ f4s <- f4s %>%
 ## Full join excel, screening and f4s
 df1 <- full_join(excel, f4s, by = c("MDN", "Zorgpad", "group", "inclusion", "participation"))
 
-df <- full_join(df1, screening, by = c("MDN", "Zorgpad", "group", "inclusion", "participation")) ## add group variable in f4s dataframe (join with castor)
+df <- full_join(df1, screening, by = c("MDN", "Zorgpad", "group", "inclusion", "participation"))
 
 ## Manipulate df_counts
 ## Create factors for group and Zorgpad
