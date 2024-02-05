@@ -100,7 +100,7 @@ f4s <- f4s %>%
 ## Add variables inclusion, informed_consent, study_cohort
 f4s <- f4s %>%
   mutate(inclusion = ifelse(`F4S definitieve deelname` == "nee", "no", "yes")) %>%
-  mutate(informed_consent = ifelse(`F4S definitieve deelname` == "ja", "yes", "no")) %>%
+  mutate(informed_consent = "yes") %>%
   mutate(study_cohort = "prospective") #all these patients were included prospectively
 
 ## add group and intention to treat variables to f4s file
@@ -208,6 +208,7 @@ df_pros <- df_pros %>%
 # organize global environment (only keep df_pros)
 rm(df, excel, f4s, f4s_group, f4s_test, full_data, screening, test, test2)
 
+# Create dataset for primary outcomes
 ### next steps: 
 ### 1.join df_pros with complications from spss (prospective cohort), by MDN ###
 ### 2. create dataset like df_pros, but then df_retro ###
@@ -215,5 +216,43 @@ rm(df, excel, f4s, f4s_group, f4s_test, full_data, screening, test, test2)
 ### 4. full join df_pros and df_retro, by MDN, study_id, group, inclusion, adherence, informed_consent, study_cohort, indication in to df ###
 ### 5. remove variable MDN from df ###
 ### 6. calculate clavien-dindo, CCI into pd (primary data) ###
-### 6. join testdata from castor (- select group, zorgpad, other redundant variables?) with pd, by study_id into fd (full data)
+
+###############################################################################################
+
+# Create dataset for secondary outcomes
+## Import castor data
+source("C:\\Users\\Elke\\Documents\\R\\Fit4Surgery\\Cleaning\\Source cleaning and codebook.R") #castor data from 20-12-2023
+
+## testdata from castor (- select group, zorgpad, other redundant variables?) 
+castor_data <- full_data %>%
+  select(-group, -surgery_type, -incl_ic) %>%
+  rename(study_id = id)
+
+## semi-join castor data with df_pros (only keep castor id's that are matched in df_pros)
+castor_match <- semi_join(castor_data, df_pros, by = "study_id")
+
+## inner-join castor_match with df_pros to create full dataset for secondary variables (ds)
+ds <- inner_join(castor_match, df_pros, by = "study_id")
+
+## organize ds
+### relocate columns
+ds <- ds %>%
+  relocate(group, .after = study_id) %>%
+  relocate(indication, .after = group) %>%
+  relocate(inclusion, .after = indication) %>%
+  relocate(adherence, .after = inclusion) %>%
+  relocate(informed_consent, .after = adherence) %>%
+  relocate(study_cohort, .after = informed_consent)
+
+### remove redundant columns
+ds <- ds %>%
+  select(-id_status, -site, -start_date, -incl_16, -incl_ic_date, -incl_ic_version,
+         -testroom_m1, -testroom_m2, -testroom_m3, -testroom_m5) ## nog even goed naar kijken --> alle complicatievariabelen kunnen eruit
+
+
+
+
+
+
+
 
